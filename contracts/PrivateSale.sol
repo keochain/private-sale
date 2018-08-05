@@ -10,9 +10,9 @@ contract PrivateSale is FinalizableCrowdsale, CustomPausable, HasNoTokens {
   uint public bonus100;
   uint public bonus200;
   uint public tokensSold;
-  constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, address _wallet, ERC20 _token)
+  constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, ERC20 _token)
   TimedCrowdsale(_openingTime, _closingTime)
-  Crowdsale(_rate, _wallet, _token) public {
+  Crowdsale(_rate, address(0), _token) public {
     require(_token != address(0));
     tokensForSale = 100000000  * (10 ** 18);
     bonus = 60;
