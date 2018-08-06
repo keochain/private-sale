@@ -3,15 +3,17 @@ import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowds
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "./CustomPausable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoTokens.sol";
-contract PrivateSale is FinalizableCrowdsale, CustomPausable, HasNoTokens {
+import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
+contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, HasNoTokens {
 
   uint public tokensForSale;
   uint public bonus;
   uint public bonus100;
   uint public bonus200;
   uint public tokensSold;
-  constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, ERC20 _token)
+  constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, uint _cap, ERC20 _token)
   TimedCrowdsale(_openingTime, _closingTime)
+  CappedCrowdsale(_cap)
   Crowdsale(_rate, address(0), _token) public {
     require(_token != address(0));
     tokensForSale = 100000000  * (10 ** 18);
@@ -65,7 +67,7 @@ contract PrivateSale is FinalizableCrowdsale, CustomPausable, HasNoTokens {
     super._preValidatePurchase(_beneficiary, _weiAmount);
   }
 
-  function getTokenForWei(uint _weiAmount) public constant returns(uint256) {
+  function getTokensForWei(uint _weiAmount) public constant returns(uint256) {
     return super._getTokenAmount(_weiAmount);
   }
 
