@@ -17,6 +17,9 @@ contract Vesting is CustomPausable {
     uint endTime;
   }
 
+  uint public vestingStartTime;
+  uint public vestingEndTime;
+  bool public initialized;
   mapping(address => Grant) public grants;
   constructor(ERC20 _token) public {
     VestingToken = _token;
@@ -51,13 +54,13 @@ contract Vesting is CustomPausable {
       return 0;
     }
    Grant memory grant;
-   if(now < grant.startTime) {
+   if(now < vestingStartTime) {
      return 0;
    }
-   if(now > grant.endTime) {
+   if(now > vestingEndTime) {
      return grant.allocation;
    }
-   uint noOfMonthsPassed = (now - grant.startTime).div(30 * 1 days);
+   uint noOfMonthsPassed = (now - vestingStartTime).div(30 * 1 days);
    if(noOfMonthsPassed < 6) {
      return grants[_assignee].allocation.mul(20).div(100);
    }
@@ -74,6 +77,7 @@ contract Vesting is CustomPausable {
     require(VestingToken.transfer(_assignee, difference));
   }
   function claimTokens() public whenNotPaused {
+    require(initialized);
     if(!grants[msg.sender].granted || grants[msg.sender].revoked) {
       revert();
     }
@@ -87,4 +91,13 @@ contract Vesting is CustomPausable {
     claimTokens(_assignee);
     grants[_assignee].revoked = true;
   }
+
+  function setVestingStartTime(uint _start) public onlyWhitelisted {
+    require(_start > now);
+    require(!initialized);
+    vestingStartTime = _start;
+    vestingEndTime = _start + 12*30 * 1 days;
+    initialized = true;
+  }
+
 }

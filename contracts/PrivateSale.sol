@@ -11,6 +11,7 @@ contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, H
   uint public bonus100;
   uint public bonus200;
   uint public tokensSold;
+  uint public bonusTokensSold;
   constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, uint _cap, ERC20 _token)
   TimedCrowdsale(_openingTime, _closingTime)
   CappedCrowdsale(_cap)
@@ -60,6 +61,7 @@ contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, H
     // Todo Send bonus tokens to vesting contract
     require(tokensSold.add(bonusTokens) <= tokensForSale);
     tokensSold = tokensSold.add(bonusTokens);
+    bonusTokensSold = bonusTokensSold.add(bonusTokens);
     super._postValidatePurchase(_beneficiary, _weiAmount);
   }
 
@@ -83,5 +85,9 @@ contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, H
 
   function _forwardFunds() internal {
 
+  }
+
+  function finalization() internal {
+    token.transfer(msg.sender, token.balanceOf(this).sub(bonusTokensSold));
   }
 }
