@@ -13,13 +13,11 @@ contract Vesting is CustomPausable {
     bool revoked;
     uint allocation;
     uint claimed;
-    uint startTime;
-    uint endTime;
   }
 
   uint public vestingStartTime;
   uint public vestingEndTime;
-  bool public initialized;
+  bool public vestingInitialized;
   mapping(address => Grant) public grants;
   constructor(ERC20 _token) public {
     VestingToken = _token;
@@ -29,7 +27,7 @@ contract Vesting is CustomPausable {
     return grants[_assignee].granted;
   }
 
-  function addGrant(address _assignee, uint _allocation, uint _startTime, uint _endTime) internal {
+  function addGrant(address _assignee, uint _allocation) internal {
     if(grants[_assignee].granted) {
       revert();
     }
@@ -37,8 +35,6 @@ contract Vesting is CustomPausable {
     Grant memory grant;
     grant.granted = true;
     grant.allocation = _allocation;
-    grant.startTime = _startTime;
-    grant.endTime = _endTime;
     grants[_assignee] = grant;
   }
 
@@ -77,7 +73,7 @@ contract Vesting is CustomPausable {
     require(VestingToken.transfer(_assignee, difference));
   }
   function claimTokens() public whenNotPaused {
-    require(initialized);
+    require(vestingInitialized);
     if(!grants[msg.sender].granted || grants[msg.sender].revoked) {
       revert();
     }
@@ -94,10 +90,10 @@ contract Vesting is CustomPausable {
 
   function setVestingStartTime(uint _start) public onlyWhitelisted {
     require(_start > now);
-    require(!initialized);
+    require(!vestingInitialized);
     vestingStartTime = _start;
     vestingEndTime = _start + 12*30 * 1 days;
-    initialized = true;
+    vestingInitialized = true;
   }
 
 }

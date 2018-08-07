@@ -4,7 +4,9 @@ import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "./CustomPausable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoTokens.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
-contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, HasNoTokens {
+import "./Vesting.sol";
+
+contract PrivateSale is Vesting, FinalizableCrowdsale, CappedCrowdsale, HasNoTokens {
 
   uint public tokensForSale;
   uint public bonus;
@@ -57,9 +59,14 @@ contract PrivateSale is FinalizableCrowdsale, CappedCrowdsale, CustomPausable, H
     uint _tokenAmount = super._getTokenAmount(_weiAmount);
     uint bonusRate = getBonusRate(_weiAmount);
     uint bonusTokens = _tokenAmount.mul(bonusRate).div(100);
-
-    // Todo Send bonus tokens to vesting contract
     require(tokensSold.add(bonusTokens) <= tokensForSale);
+
+    if(super.addressGranted(_beneficiary)) {
+      super.increaseGrant(_beneficiary, bonusTokens);
+    } else {
+      super.addGrant(_beneficiary, bonusTokens);
+    }
+
     tokensSold = tokensSold.add(bonusTokens);
     bonusTokensSold = bonusTokensSold.add(bonusTokens);
     super._postValidatePurchase(_beneficiary, _weiAmount);
