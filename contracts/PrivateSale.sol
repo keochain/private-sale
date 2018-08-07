@@ -1,12 +1,14 @@
 pragma solidity 0.4.24;
-import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
+
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
 import "./CustomPausable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoTokens.sol";
 import "openzeppelin-solidity/contracts/crowdsale/validation/CappedCrowdsale.sol";
 import "./Vesting.sol";
 
-contract PrivateSale is Vesting, FinalizableCrowdsale, CappedCrowdsale, HasNoTokens {
+contract PrivateSale is Vesting, FinalizableCrowdsale, CappedCrowdsale, HasNoTokens
+{
 
   uint public tokensForSale;
   uint public bonus;
@@ -17,8 +19,9 @@ contract PrivateSale is Vesting, FinalizableCrowdsale, CappedCrowdsale, HasNoTok
   constructor(uint256 _openingTime, uint256 _closingTime, uint256 _rate, uint _cap, ERC20 _token)
   TimedCrowdsale(_openingTime, _closingTime)
   CappedCrowdsale(_cap)
-  Crowdsale(_rate, address(0), _token) public {
-    require(_token != address(0));
+  Crowdsale(_rate, msg.sender, _token)
+  Vesting(_token)
+  public {
     tokensForSale = 100000000  * (10 ** 18);
     bonus = 60;
     bonus100 = bonus + 5;
