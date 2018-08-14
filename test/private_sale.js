@@ -84,7 +84,7 @@ contract('PrivateSale', async function(accounts) {
     let sale;
     const rate = 14000;
     beforeEach(async () => {
-      let token = await Token.new(accounts[0], 1);
+      let token = await Token.new(accounts[0], ether(100*rate));
       const openingTime =  latestTime() + duration.days(1);
       const closingTime =  openingTime + duration.days(10);
       const cap = ether(4464);
@@ -108,5 +108,138 @@ contract('PrivateSale', async function(accounts) {
       let tokens = await sale.getTokensForWei(ether(0.5));
       tokens.should.be.bignumber.equal(ether(rate*0.5));
     });
+  })
+
+  describe('token transfer', () => {
+    const bonus = 60
+    const bonusFor100 = 65;
+    const bonusFor200 = 70;
+    let sale;
+    let token;
+    const rate = 14000;
+    beforeEach(async () => {
+      token = await Token.new(accounts[0], ether(100*rate));
+      const openingTime =  latestTime() + duration.days(1);
+      const closingTime =  openingTime + duration.days(10);
+      const cap = ether(4464);
+      sale = await PrivateSale.new(openingTime, closingTime, rate, cap, token.address);
+      await increaseTimeTo(openingTime + 10);
+      await token.transfer(sale.address, ether(100*rate));
+    })
+    it('should return 14000 for 1 ether', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      const TokenBalance = await token.balanceOf(accounts[1]);
+      TokenBalance.should.be.bignumber.equal(ether(14000));
+      const grant = await sale.grants(accounts[1]);
+      assert(grant[0]);
+      assert(!grant[1]);
+      grant[2].should.be.bignumber.equal(ether(0.60*rate));
+    });
+
+    it('check bonus allocation', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      const grant = await sale.grants(accounts[1]);
+      assert(grant[0]);
+      assert(!grant[1]);
+      grant[2].should.be.bignumber.equal(ether(2*0.60*rate));
+      const bonusTokensSold = await sale.bonusTokensSold();
+      bonusTokensSold.should.be.bignumber.equal(ether(2*0.60*rate));
+      (await sale.tokensSold()).should.be.bignumber.equal(ether(2*0.60*rate + 2*rate));
+    });
+  })
+
+  describe('End of sale', () => {
+    const bonus = 60
+    const bonusFor100 = 65;
+    const bonusFor200 = 70;
+    let sale;
+    let token;
+    const rate = 14000;
+    let openingTime;
+    let closingTime;
+    let cap;
+    beforeEach(async () => {
+      token = await Token.new(accounts[0], ether(100*rate));
+      openingTime =  latestTime() + duration.days(1);
+      closingTime =  openingTime + duration.days(10);
+      cap = ether(1);
+      sale = await PrivateSale.new(openingTime, closingTime, rate, cap, token.address);
+      await increaseTimeTo(openingTime + 10);
+      await token.transfer(sale.address, ether(100*rate));
+    })
+    it('it should revert if 1.2 ether is sent', async () => {
+      await sale.sendTransaction({ value: ether(1.2), from: accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+    });
+    it('should revert if it has passed the closing time', async () => {
+      await increaseTimeTo(closingTime + 10);
+      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+    })
+
+    it('finalize should return the correct number of tokens', async () => {
+      const bonus = 0.60 * rate;
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      const bonusTokensSold = await sale.bonusTokensSold();
+      bonusTokensSold.should.be.bignumber.equal(ether(bonus));
+      await sale.finalize();
+      (await token.balanceOf(sale.address)).should.be.bignumber.equal(bonusTokensSold)
+      assert(await sale.isFinalized())
+    })
+
+    it('finalize can be called when the crowdsale is over', async () => {
+      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] });
+      await increaseTimeTo(closingTime + 100)
+      await sale.finalize();
+      assert(await sale.isFinalized())
+    })
+  })
+
+  describe('End of sale', () => {
+    const bonus = 60
+    const bonusFor100 = 65;
+    const bonusFor200 = 70;
+    let sale;
+    let token;
+    const rate = 14000;
+    let openingTime;
+    let closingTime;
+    let cap;
+    beforeEach(async () => {
+      token = await Token.new(accounts[0], ether(100*rate));
+      openingTime =  latestTime() + duration.days(1);
+      closingTime =  openingTime + duration.days(10);
+      cap = ether(1);
+      sale = await PrivateSale.new(openingTime, closingTime, rate, cap, token.address);
+      await increaseTimeTo(openingTime + 10);
+      await token.transfer(sale.address, ether(100*rate));
+    })
+    it('it should revert if 1.2 ether is sent', async () => {
+      await sale.sendTransaction({ value: ether(1.2), from: accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+    });
+    it('should revert if it has passed the closing time', async () => {
+      await increaseTimeTo(closingTime + 10);
+      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] })
+      .should.be.rejectedWith(EVMRevert);
+    })
+
+    it('finalize should return the correct number of tokens', async () => {
+      const bonus = 0.60 * rate;
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      const bonusTokensSold = await sale.bonusTokensSold();
+      bonusTokensSold.should.be.bignumber.equal(ether(bonus));
+      await sale.finalize();
+      (await token.balanceOf(sale.address)).should.be.bignumber.equal(bonusTokensSold)
+      assert(await sale.isFinalized())
+    })
+
+    it('finalize can be called when the crowdsale is over', async () => {
+      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] });
+      await increaseTimeTo(closingTime + 100)
+      await sale.finalize();
+      assert(await sale.isFinalized())
+    })
   })
 });

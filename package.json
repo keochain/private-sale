@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "testrpc": "ganache-cli --gasLimit 90000000"
+    "testrpc": "testrpc --gasLimit 90000000"
   },
   "author": "",
   "license": "ISC",

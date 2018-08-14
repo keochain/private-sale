@@ -100,4 +100,8 @@ contract PrivateSale is Vesting, FinalizableCrowdsale, CappedCrowdsale, HasNoTok
   function finalization() internal {
     token.transfer(msg.sender, token.balanceOf(this).sub(bonusTokensSold));
   }
+
+  function hasClosed() public view returns (bool) {
+    return super.capReached() || super.hasClosed();
+  }
 }

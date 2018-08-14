@@ -44,7 +44,7 @@ contract CustomWhitelist is Ownable {
    */
   function addAddressToWhitelist(address addr) onlyWhitelisted  public {
     require(!whitelist[addr]);
-
+    require(addr!= address(0));
     whitelist[addr] = true;
     numberOfWhitelists++;
 

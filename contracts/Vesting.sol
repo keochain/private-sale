@@ -45,18 +45,18 @@ contract Vesting is CustomPausable {
     grants[_assignee].allocation = grants[_assignee].allocation.add(_increase);
   }
 
-  function calculateVestedTokens(address _assignee) public constant returns (uint256) {
+  function calculateVestedTokens(address _assignee, uint _atTime) public constant returns (uint256) {
     if(!grants[_assignee].granted || grants[_assignee].revoked) {
       return 0;
     }
    Grant memory grant;
-   if(now < vestingStartTime) {
+   if(_atTime < vestingStartTime) {
      return 0;
    }
-   if(now > vestingEndTime) {
+   if(_atTime > vestingEndTime) {
      return grant.allocation;
    }
-   uint noOfMonthsPassed = (now - vestingStartTime).div(30 * 1 days);
+   uint noOfMonthsPassed = (_atTime - vestingStartTime).div(30 * 1 days);
    if(noOfMonthsPassed < 6) {
      return grants[_assignee].allocation.mul(20).div(100);
    }
@@ -66,7 +66,7 @@ contract Vesting is CustomPausable {
   }
 
   function claimTokens(address _assignee) private {
-    uint tokensVested = calculateVestedTokens(_assignee);
+    uint tokensVested = calculateVestedTokens(_assignee, now);
     uint difference = tokensVested.sub(grants[_assignee].claimed);
     require(difference > 0);
     grants[msg.sender].claimed = grants[_assignee].claimed.add(difference);
