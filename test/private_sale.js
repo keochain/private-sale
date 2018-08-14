@@ -196,7 +196,7 @@ contract('PrivateSale', async function(accounts) {
     })
   })
 
-  describe('End of sale', () => {
+  describe('Vesting', () => {
     const bonus = 60
     const bonusFor100 = 65;
     const bonusFor200 = 70;
@@ -210,36 +210,75 @@ contract('PrivateSale', async function(accounts) {
       token = await Token.new(accounts[0], ether(100*rate));
       openingTime =  latestTime() + duration.days(1);
       closingTime =  openingTime + duration.days(10);
-      cap = ether(1);
+      cap = ether(10);
       sale = await PrivateSale.new(openingTime, closingTime, rate, cap, token.address);
       await increaseTimeTo(openingTime + 10);
       await token.transfer(sale.address, ether(100*rate));
     })
-    it('it should revert if 1.2 ether is sent', async () => {
-      await sale.sendTransaction({ value: ether(1.2), from: accounts[1] })
-      .should.be.rejectedWith(EVMRevert);
-    });
-    it('should revert if it has passed the closing time', async () => {
-      await increaseTimeTo(closingTime + 10);
-      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] })
-      .should.be.rejectedWith(EVMRevert);
-    })
 
-    it('finalize should return the correct number of tokens', async () => {
-      const bonus = 0.60 * rate;
+    it('claim tokens should revert if vesting start time has not been set', async () => {
       await sale.sendTransaction({ value: ether(1), from: accounts[1] });
-      const bonusTokensSold = await sale.bonusTokensSold();
-      bonusTokensSold.should.be.bignumber.equal(ether(bonus));
-      await sale.finalize();
-      (await token.balanceOf(sale.address)).should.be.bignumber.equal(bonusTokensSold)
-      assert(await sale.isFinalized())
+      assert(await sale.vestingInitialized() == false);
+      await sale.claimTokens(accounts[1]).should.be.rejectedWith(EVMRevert);
     })
 
-    it('finalize can be called when the crowdsale is over', async () => {
-      await sale.sendTransaction({ value: ether(0.5), from: accounts[1] });
-      await increaseTimeTo(closingTime + 100)
-      await sale.finalize();
-      assert(await sale.isFinalized())
-    })
+    it('set vesting start time', async () => {
+      await sale.setVestingStartTime(closingTime + 10);
+      assert((await sale.vestingStartTime()).toNumber() == closingTime + 10);
+      assert((await sale.vestingEndTime()).toNumber() == closingTime + 10 + duration.years(1));
+    });
+
+    it('user cannot claim before vesting start time', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      await sale.setVestingStartTime(closingTime + 10);
+      const grant = await sale.grants(accounts[1]);
+      assert(grant[0] == true);
+      let vestedTokens = await sale.calculateVestedTokens(accounts[1], latestTime());
+      vestedTokens.should.be.bignumber.equal(ether(0));
+    });
+
+    it('should return the correct vested tokens during the vesting period', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      await sale.setVestingStartTime(closingTime + 10);
+      const months5 = closingTime + 10 + duration.months(5);
+      let vestedTokens;
+      vestedTokens = await sale.calculateVestedTokens(accounts[1], months5);
+      vestedTokens.should.be.bignumber.equal(ether(0.60*0.20*rate));
+
+      const months6 = closingTime + 10 + duration.months(6);
+      vestedTokens = await sale.calculateVestedTokens(accounts[1], months6);
+      vestedTokens.should.be.bignumber.equal(ether(0.60*0.60*rate));
+      const months8 = closingTime + 10 + duration.months(8);
+      vestedTokens = await sale.calculateVestedTokens(accounts[1], months8);
+      vestedTokens.should.be.bignumber.equal(ether(0.60*0.60*rate));
+
+      const months14 = closingTime + 10 + duration.years(1);
+      vestedTokens = await sale.calculateVestedTokens(accounts[1], months14);
+      vestedTokens.should.be.bignumber.equal(ether(0.60*rate));
+    });
+
+    it('claim should set the claimed tokens', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      await sale.setVestingStartTime(closingTime + 10);
+      const months5 = closingTime + 10 + duration.months(5);
+      await increaseTimeTo(months5);
+      await sale.claimTokens({from: accounts[1]});
+      const grant = await sale.grants(accounts[1]);
+      grant[3].should.be.bignumber.equal(ether(rate*0.60*0.20));
+    });
+
+    it('revoke should set the grant to be revoked and should transfer vested tokens to the holder, unvested tokens must be sent back to whitelist', async () => {
+      await sale.sendTransaction({ value: ether(1), from: accounts[1] });
+      await sale.setVestingStartTime(closingTime + 10);
+      const months5 = closingTime + 10 + duration.months(5);
+      await increaseTimeTo(months5);
+      const oldBalance = await token.balanceOf(accounts[0]);
+      await sale.revoke(accounts[1]);
+
+      const grant = await sale.grants(accounts[1]);
+      assert(grant[1] == true);
+      const newBalance = await token.balanceOf(accounts[0]);
+      newBalance.should.be.bignumber.equal(oldBalance.add(grant[2].sub(grant[3])));
+    });
   })
 });

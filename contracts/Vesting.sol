@@ -49,34 +49,30 @@ contract Vesting is CustomPausable {
     if(!grants[_assignee].granted || grants[_assignee].revoked) {
       return 0;
     }
-   Grant memory grant;
-   if(_atTime < vestingStartTime) {
+    if(vestingStartTime == 0 || _atTime < vestingStartTime) {
      return 0;
-   }
-   if(_atTime > vestingEndTime) {
-     return grant.allocation;
-   }
-   uint noOfMonthsPassed = (_atTime - vestingStartTime).div(30 * 1 days);
-   if(noOfMonthsPassed < 6) {
+    }
+    if(_atTime >= vestingEndTime) {
+     return grants[_assignee].allocation;
+    }
+    uint noOfMonthsPassed = (_atTime - vestingStartTime).div(30 * 1 days);
+    if(noOfMonthsPassed < 6) {
      return grants[_assignee].allocation.mul(20).div(100);
-   }
-   else {
+    }
+    else {
      return grants[_assignee].allocation.mul(60).div(100);
-   }
+    }
   }
 
   function claimTokens(address _assignee) private {
     uint tokensVested = calculateVestedTokens(_assignee, now);
     uint difference = tokensVested.sub(grants[_assignee].claimed);
     require(difference > 0);
-    grants[msg.sender].claimed = grants[_assignee].claimed.add(difference);
+    grants[_assignee].claimed = grants[_assignee].claimed.add(difference);
     require(VestingToken.transfer(_assignee, difference));
   }
   function claimTokens() public whenNotPaused {
     require(vestingInitialized);
-    if(!grants[msg.sender].granted || grants[msg.sender].revoked) {
-      revert();
-    }
     claimTokens(msg.sender);
   }
 
@@ -85,6 +81,11 @@ contract Vesting is CustomPausable {
       revert();
     }
     claimTokens(_assignee);
+    uint unVested = grants[_assignee].allocation.sub(grants[_assignee].claimed);
+    if(unVested > 0) {
+      VestingToken.transfer(msg.sender, unVested);
+    }
+
     grants[_assignee].revoked = true;
   }
 
@@ -92,7 +93,7 @@ contract Vesting is CustomPausable {
     require(_start > now);
     require(!vestingInitialized);
     vestingStartTime = _start;
-    vestingEndTime = _start + 12*30 * 1 days;
+    vestingEndTime = _start + 365 * 1 days;
     vestingInitialized = true;
   }
 
